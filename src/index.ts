@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import { env } from "./config/env.js";
 import { httpRequestCounter, httpRequestDuration, register } from "./metrics.js";
+import { bookingRoutes } from "./routes/booking.js";
 
 const app = Fastify({ logger: true });
 
@@ -24,6 +25,8 @@ app.get('/metrics', async (request, reply) => {
     reply.header('Content-Type', register.contentType);
     return register.metrics();
 })
+
+app.register(bookingRoutes);
 
 export const start = async () => {
     try {
