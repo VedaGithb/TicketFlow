@@ -2,6 +2,8 @@ import Fastify from "fastify";
 import { env } from "./config/env.js";
 import { httpRequestCounter, httpRequestDuration, register } from "./metrics.js";
 import { bookingRoutes } from "./routes/booking.js";
+import { startOutboxRelay } from "./worker/outboxRelay.js";
+import { startExpirationWorker } from "./worker/expirationWorker.js";
 
 const app = Fastify({ logger: true });
 
@@ -31,6 +33,10 @@ app.register(bookingRoutes);
 export const start = async () => {
     try {
         await app.listen({ port: env.PORT, host: '0.0.0.0' });
+        startOutboxRelay();
+        startExpirationWorker();
+
+        console.log('Outbox Relay и Expiration Worker запущены!');
     } catch (err) {
         app.log.error(err);
         process.exit(1);

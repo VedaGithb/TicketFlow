@@ -90,6 +90,7 @@ export async function createBooking(input: CreateBookingInput, idempotencyKey: s
                     eventId: input.eventId,
                     seatIds: sortedSeatIds,
                     totalCents,
+                    expiresAt: expiresAt.toISOString(),
                 },
             });
 
