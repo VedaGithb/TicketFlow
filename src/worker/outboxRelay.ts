@@ -15,7 +15,12 @@ export const processOutboxBatch = async () => {
 
         for (const event of pendingResult) {
             if (event.eventType === 'BOOKING_CREATED') {
-                const payload = event.payload as { bookingId: string, expiresAt?: string };
+                const payload = event.payload as {
+                    bookingId: string;
+                    eventId: string;
+                    seatIds: string[];
+                    expiresAt?: string;
+                };
 
 
                 const delay = payload.expiresAt
@@ -24,11 +29,12 @@ export const processOutboxBatch = async () => {
 
                 await bookingExpirationQueue.add(
                     'expire-booking',
-                    { bookingId: payload.bookingId },
                     {
-                        delay,
-                        jobId: `expire-${payload.bookingId}`
-                    }
+                        bookingId: payload.bookingId,
+                        eventId: payload.eventId,
+                        seatIds: payload.seatIds,
+                    },
+                    { delay, jobId: `expire-${payload.bookingId}` }
                 );
             }
 

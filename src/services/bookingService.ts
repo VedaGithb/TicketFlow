@@ -6,6 +6,7 @@ import { bookingSeats } from "../db/schema/bookingSeats.js";
 import { bookings } from "../db/schema/bookings.js";
 import { outboxEvents } from "../db/schema/outboxEvents.js";
 import { redis } from "../redis/index.js";
+import { publishSeatUpdate } from "../websocket/roomManager.js";
 
 export async function createBooking(input: CreateBookingInput, idempotencyKey: string) {
     const idempKey = `idemp:${idempotencyKey}`;
@@ -97,6 +98,7 @@ export async function createBooking(input: CreateBookingInput, idempotencyKey: s
             return newBooking;
         });
         await redis.set(idempKey, JSON.stringify(result), "EX", 86400);
+        await publishSeatUpdate(result!.eventId, input.seatIds, 'LOCKED')
         return result;
     } catch (err) {
         await redis.del(idempKey)

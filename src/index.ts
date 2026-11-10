@@ -4,6 +4,8 @@ import { httpRequestCounter, httpRequestDuration, register } from "./metrics.js"
 import { bookingRoutes } from "./routes/booking.js";
 import { startOutboxRelay } from "./worker/outboxRelay.js";
 import { startExpirationWorker } from "./worker/expirationWorker.js";
+import websocket from "@fastify/websocket";
+import { websocketRoutes } from "./routes/websocket.js";
 
 const app = Fastify({ logger: true });
 
@@ -27,6 +29,10 @@ app.get('/metrics', async (request, reply) => {
     reply.header('Content-Type', register.contentType);
     return register.metrics();
 })
+
+await app.register(websocket);
+
+app.register(websocketRoutes);
 
 app.register(bookingRoutes);
 
