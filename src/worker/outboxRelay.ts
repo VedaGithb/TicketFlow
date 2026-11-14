@@ -52,7 +52,7 @@ export const processOutboxBatch = async () => {
 }
 
 export const startOutboxRelay = () => {
-    setInterval(() => {
+    return setInterval(() => {
         processOutboxBatch().catch((err) => {
             console.error('Ошибка Outbox Relay:', err);
         })

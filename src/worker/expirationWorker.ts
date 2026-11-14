@@ -32,4 +32,6 @@ export const startExpirationWorker = () => {
     worker.on('failed', (job, err) => {
         console.error(`[Воркер] Ошибка в задаче ${job?.id}:`, err);
     });
+
+    return worker;
 }

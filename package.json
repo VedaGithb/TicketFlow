@@ -23,6 +23,9 @@
     "typescript": "^7.0.2"
   },
   "dependencies": {
+    "@fastify/rate-limit": "^11.2.2",
+    "@fastify/swagger": "^9.9.4",
+    "@fastify/swagger-ui": "^6.1.4",
     "@fastify/websocket": "^11.3.7",
     "bullmq": "^6.5.4",
     "dotenv": "^18.0.9",

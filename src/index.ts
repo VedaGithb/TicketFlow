@@ -6,6 +6,12 @@ import { startOutboxRelay } from "./worker/outboxRelay.js";
 import { startExpirationWorker } from "./worker/expirationWorker.js";
 import websocket from "@fastify/websocket";
 import { websocketRoutes } from "./routes/websocket.js";
+import { pool } from './db/index.js';
+import { redis } from "./redis/index.js";
+import { subscriber } from "./websocket/roomManager.js";
+import fastifyRateLimit from "@fastify/rate-limit";
+import fastifySwagger from "@fastify/swagger";
+import fastifySwaggerUi from "@fastify/swagger-ui";
 
 const app = Fastify({ logger: true });
 
@@ -32,15 +38,38 @@ app.get('/metrics', async (request, reply) => {
 
 await app.register(websocket);
 
+await app.register(fastifyRateLimit, {
+    max: 100,
+    timeWindow: '1 minute',
+    redis,
+});
+
+await app.register(fastifySwagger, {
+    openapi: {
+        info: {
+            title: 'TicketFlow API',
+            description: 'Высоконагруженный сервис бронирования билетов',
+            version: '1.0.0',
+        },
+    },
+});
+
+await app.register(fastifySwaggerUi, {
+    routePrefix: '/docs',
+});
+
 app.register(websocketRoutes);
 
 app.register(bookingRoutes);
 
+
+let relayTimer: NodeJS.Timeout | null = null;
+let expirationWorker: ReturnType<typeof startExpirationWorker> | null = null;
 export const start = async () => {
     try {
         await app.listen({ port: env.PORT, host: '0.0.0.0' });
-        startOutboxRelay();
-        startExpirationWorker();
+        relayTimer = startOutboxRelay();
+        expirationWorker = startExpirationWorker();
 
         console.log('Outbox Relay и Expiration Worker запущены!');
     } catch (err) {
@@ -50,3 +79,26 @@ export const start = async () => {
 };
 
 start();
+
+const gracefulShutdown = async (signal: string) => {
+    try {
+        app.log.info(`Получен сигнал ${signal}, начинаеться плавная остановка...`);
+        await app.close();
+
+        if (expirationWorker) await expirationWorker.close();
+        if (relayTimer) clearInterval(relayTimer);
+
+        await redis.quit();
+        await subscriber.quit();
+
+        await pool.end();
+
+        process.exit(0);
+    } catch (err) {
+        app.log.error(err, 'Ошибка во время останвки:');
+        process.exit(1);
+    }
+}
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
