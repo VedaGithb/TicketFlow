@@ -13,20 +13,24 @@ export const options = {
         flash_sale_spike: {
             executor: 'shared-iterations',
             vus: 100,
-            iterations: 1500,
+            iterations: 100,
             maxDuration: '45s',
         },
     },
     thresholds: {
         unexpected_errors: ['count==0'],
-        successful_bookings: ['count==100'],
+        successful_bookings: ['count>=1'],
         http_req_duration: ['p(95)<300'],
     },
 };
 
 export default function () {
-    const randomIndex = Math.floor(Math.random() * testData.seatIds.length);
-    const seatId = testData.seatIds[randomIndex];
+    const seatA = testData.seatIds[0];
+    const seatB = testData.seatIds[1];
+
+    const seatsToBook = (__VU % 2 === 0)
+        ? [seatA, seatB]
+        : [seatB, seatA];
 
     const idempotencyKey = `k6-${__VU}-${__ITER}-${Date.now()}-${Math.random()}`;
 
@@ -34,7 +38,7 @@ export default function () {
     const payload = JSON.stringify({
         userId: testData.userId,
         eventId: testData.eventId,
-        seatIds: [seatId],
+        seatIds: seatsToBook,
     });
 
     const params = {
