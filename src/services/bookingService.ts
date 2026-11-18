@@ -25,9 +25,9 @@ export async function createBooking(input: CreateBookingInput, idempotencyKey: s
         throw new Error('Запрос уже обрабатывается, пожалуйста, подождите');
     }
 
-
+    let result;
     try {
-        const result = await db.transaction(async (tx) => {
+        result = await db.transaction(async (tx) => {
             const sortedSeatIds = [...input.seatIds].sort();
 
             const lockedSeats = await tx
@@ -97,11 +97,15 @@ export async function createBooking(input: CreateBookingInput, idempotencyKey: s
 
             return newBooking;
         });
-        await redis.set(idempKey, JSON.stringify(result), "EX", 86400);
-        await publishSeatUpdate(result!.eventId, input.seatIds, 'LOCKED')
-        return result;
     } catch (err) {
         await redis.del(idempKey)
         throw err;
     }
+    try {
+        await redis.set(idempKey, JSON.stringify(result), "EX", 86400);
+        await publishSeatUpdate(result!.eventId, input.seatIds, 'LOCKED')
+    } catch (err) {
+        console.error('Пост-коммит сбой:', err);
+    }
+    return result;
 }
