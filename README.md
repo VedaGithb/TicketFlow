@@ -73,9 +73,9 @@
     checks_succeeded...: 100.00% 1500 out of 1500
 
     CUSTOM
-    conflict_bookings..............: 1400 (все опоздавшие получили 409 Conflict)
-    successful_bookings............: 100  (ровно 100 билетов продано)
-    unexpected_errors..............: 0    (0 дедлоков, 0 ошибок 500)
+    conflict_bookings..............: 1400
+    successful_bookings............: 100
+    unexpected_errors..............: 0
 ```
 
 ### Итоги проверки целостности данных:

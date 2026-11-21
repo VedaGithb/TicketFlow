@@ -39,7 +39,7 @@ app.get('/metrics', async (request, reply) => {
 await app.register(websocket);
 
 await app.register(fastifyRateLimit, {
-    max: 100,
+    max: env.RATE_LIMIT_MAX,
     timeWindow: '1 minute',
     redis,
 });

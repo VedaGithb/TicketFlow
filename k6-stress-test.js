@@ -13,7 +13,7 @@ export const options = {
         flash_sale_spike: {
             executor: 'shared-iterations',
             vus: 100,
-            iterations: 100,
+            iterations: 300,
             maxDuration: '45s',
         },
     },
