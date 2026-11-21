@@ -1,4 +1,4 @@
-import Fastify from "fastify";
+import Fastify, { FastifyReply, FastifyRequest } from "fastify";
 import { env } from "./config/env.js";
 import { httpRequestCounter, httpRequestDuration, register } from "./metrics.js";
 import { bookingRoutes } from "./routes/booking.js";
@@ -12,6 +12,8 @@ import { subscriber } from "./websocket/roomManager.js";
 import fastifyRateLimit from "@fastify/rate-limit";
 import fastifySwagger from "@fastify/swagger";
 import fastifySwaggerUi from "@fastify/swagger-ui";
+import fastifyJwt from "@fastify/jwt";
+import { authRoutes } from "./routes/auth.js";
 
 const app = Fastify({ logger: true });
 
@@ -53,6 +55,20 @@ await app.register(fastifySwagger, {
         },
     },
 });
+
+await app.register(fastifyJwt, {
+    secret: env.JWT_SECRET
+});
+
+app.decorate('authenticate', async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+        await request.jwtVerify();
+    } catch (err) {
+        reply.status(401).send({ error: 'Не авторизован' });
+    }
+});
+
+app.register(authRoutes);
 
 await app.register(fastifySwaggerUi, {
     routePrefix: '/docs',

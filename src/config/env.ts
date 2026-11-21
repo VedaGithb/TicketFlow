@@ -7,6 +7,7 @@ export const envSchema = z.object({
     DATABASE_URL: z.string().url(),
     REDIS_URL: z.string(),
     RATE_LIMIT_MAX: z.coerce.number().default(100),
+    JWT_SECRET: z.string().default('super-secret-jwt-key-ticketflow')
 })
 
 export const env = envSchema.parse(process.env)

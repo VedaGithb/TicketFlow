@@ -8,7 +8,7 @@ import { outboxEvents } from "../db/schema/outboxEvents.js";
 import { redis } from "../redis/index.js";
 import { publishSeatUpdate } from "../websocket/roomManager.js";
 
-export async function createBooking(input: CreateBookingInput, idempotencyKey: string) {
+export async function createBooking(input: CreateBookingInput, userId: string, idempotencyKey: string) {
     const idempKey = `idemp:${idempotencyKey}`;
     const cached = await redis.get(idempKey);
 
@@ -65,7 +65,7 @@ export async function createBooking(input: CreateBookingInput, idempotencyKey: s
             const [newBooking] = await tx
                 .insert(bookings)
                 .values({
-                    userId: input.userId,
+                    userId: userId,
                     eventId: input.eventId,
                     status: 'PENDING',
                     totalCents,
@@ -87,7 +87,7 @@ export async function createBooking(input: CreateBookingInput, idempotencyKey: s
                 eventType: 'BOOKING_CREATED',
                 payload: {
                     bookingId: newBooking!.id,
-                    userId: input.userId,
+                    userId: userId,
                     eventId: input.eventId,
                     seatIds: sortedSeatIds,
                     totalCents,
