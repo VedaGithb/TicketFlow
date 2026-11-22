@@ -33,6 +33,12 @@ export const bookingRoutes = async (app: FastifyInstance) => {
                 })
             }
 
+            if (message.includes('не найдены') || message.includes('не принадлежат')) {
+                return reply.status(400).send({
+                    error: message,
+                });
+            }
+
             request.log.error(err);
             return reply.status(500).send({
                 error: 'Внутренняя ошибка сервера'

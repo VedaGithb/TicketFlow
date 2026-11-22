@@ -37,6 +37,16 @@ export async function createBooking(input: CreateBookingInput, userId: string, i
                 .orderBy(asc(seats.id))
                 .for('update');
 
+            if (lockedSeats.length !== sortedSeatIds.length) {
+                throw new Error('Одно или несколько мест не найдены');
+            }
+
+            for (const s of lockedSeats) {
+                if (s.eventId !== input.eventId) {
+                    throw new Error('Выбранные места не принадлежат данному мероприятию')
+                }
+            }
+
             const occupiedSeats = await tx
                 .select({ seatId: bookingSeats.seatId })
                 .from(bookingSeats)
