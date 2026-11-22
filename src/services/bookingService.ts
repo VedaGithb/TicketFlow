@@ -109,3 +109,36 @@ export async function createBooking(input: CreateBookingInput, userId: string, i
     }
     return result;
 }
+
+export async function payBooking(bookingId: string, userId: string) {
+    try {
+        const [confirmedBooking] = await db
+            .update(bookings)
+            .set({ status: 'CONFIRMED' })
+            .where(and(
+                eq(bookings.id, bookingId),
+                eq(bookings.userId, userId),
+                eq(bookings.status, 'PENDING'),
+                gt(bookings.expiresAt, new Date())
+            ))
+            .returning()
+
+        if (!confirmedBooking) {
+            const [existing] = await db.select().from(bookings).where(eq(bookings.id, bookingId));
+            if (!existing || existing.userId !== userId) {
+                throw new Error('Бронь не найдена');
+            }
+            if (existing.status === 'CONFIRMED') {
+                throw new Error('Бронь уже оплачена');
+            }
+            if (existing.status === 'EXPIRED' || existing.expiresAt <= new Date()) {
+                throw new Error('Срок действия брони истек');
+            }
+            throw new Error('Не удалось оплатить бронь');
+        }
+        return confirmedBooking;
+    } catch (err) {
+        console.error('Ошибка при оплате:', err);
+        throw err;
+    }
+}
