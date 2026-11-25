@@ -7,13 +7,14 @@ import { bookings } from "../db/schema/bookings.js";
 import { outboxEvents } from "../db/schema/outboxEvents.js";
 import { redis } from "../redis/index.js";
 import { publishSeatUpdate } from "../websocket/roomManager.js";
+import { BadRequestError, NotFoundError, ConflictError } from "../errors/appError.js";
 
 export async function createBooking(input: CreateBookingInput, userId: string, idempotencyKey: string) {
     const idempKey = `idemp:${idempotencyKey}`;
     const cached = await redis.get(idempKey);
 
     if (cached === 'PROCESSING') {
-        throw new Error('Запрос уже обрабатывается, пожалуйста, подождите');
+        throw new ConflictError('Запрос уже обрабатывается, пожалуйста, подождите', 'BOOKING_IN_PROGRESS');
     }
 
     if (cached !== null) {
@@ -22,7 +23,7 @@ export async function createBooking(input: CreateBookingInput, userId: string, i
 
     const acquired = await redis.set(idempKey, 'PROCESSING', 'EX', 120, 'NX');
     if (!acquired) {
-        throw new Error('Запрос уже обрабатывается, пожалуйста, подождите');
+        throw new ConflictError('Запрос уже обрабатывается, пожалуйста, подождите', 'BOOKING_IN_PROGRESS');
     }
 
     let result;
@@ -38,12 +39,12 @@ export async function createBooking(input: CreateBookingInput, userId: string, i
                 .for('update');
 
             if (lockedSeats.length !== sortedSeatIds.length) {
-                throw new Error('Одно или несколько мест не найдены');
+                throw new NotFoundError('Одно или несколько мест не найдены', 'SEATS_NOT_FOUND');
             }
 
             for (const s of lockedSeats) {
                 if (s.eventId !== input.eventId) {
-                    throw new Error('Выбранные места не принадлежат данному мероприятию')
+                    throw new BadRequestError('Выбранные места не принадлежат данному мероприятию', 'SEATS_EVENT_MISMATCH')
                 }
             }
 
@@ -65,7 +66,7 @@ export async function createBooking(input: CreateBookingInput, userId: string, i
                 );
 
             if (occupiedSeats.length > 0) {
-                throw new Error('Места уже заняты');
+                throw new ConflictError('Места уже заняты', 'SEATS_OCCUPIED');
             }
 
             const totalCents = lockedSeats.reduce((sum, seat) => sum + seat.priceCents, 0);
@@ -121,34 +122,30 @@ export async function createBooking(input: CreateBookingInput, userId: string, i
 }
 
 export async function payBooking(bookingId: string, userId: string) {
-    try {
-        const [confirmedBooking] = await db
-            .update(bookings)
-            .set({ status: 'CONFIRMED' })
-            .where(and(
-                eq(bookings.id, bookingId),
-                eq(bookings.userId, userId),
-                eq(bookings.status, 'PENDING'),
-                gt(bookings.expiresAt, new Date())
-            ))
-            .returning()
 
-        if (!confirmedBooking) {
-            const [existing] = await db.select().from(bookings).where(eq(bookings.id, bookingId));
-            if (!existing || existing.userId !== userId) {
-                throw new Error('Бронь не найдена');
-            }
-            if (existing.status === 'CONFIRMED') {
-                throw new Error('Бронь уже оплачена');
-            }
-            if (existing.status === 'EXPIRED' || existing.expiresAt <= new Date()) {
-                throw new Error('Срок действия брони истек');
-            }
-            throw new Error('Не удалось оплатить бронь');
+    const [confirmedBooking] = await db
+        .update(bookings)
+        .set({ status: 'CONFIRMED' })
+        .where(and(
+            eq(bookings.id, bookingId),
+            eq(bookings.userId, userId),
+            eq(bookings.status, 'PENDING'),
+            gt(bookings.expiresAt, new Date())
+        ))
+        .returning()
+
+    if (!confirmedBooking) {
+        const [existing] = await db.select().from(bookings).where(eq(bookings.id, bookingId));
+        if (!existing || existing.userId !== userId) {
+            throw new NotFoundError('Бронь не найдена', 'BOOKING_NOT_FOUND');
         }
-        return confirmedBooking;
-    } catch (err) {
-        console.error('Ошибка при оплате:', err);
-        throw err;
+        if (existing.status === 'CONFIRMED') {
+            throw new ConflictError('Бронь уже оплачена', 'BOOKING_ALREADY_CONFIRMED');
+        }
+        if (existing.status === 'EXPIRED' || existing.expiresAt <= new Date()) {
+            throw new ConflictError('Срок действия брони истек', 'BOOKING_EXPIRED');
+        }
+        throw new ConflictError('Не удалось оплатить бронь', 'BOOKING_CANNOT_BE_PAID');
     }
+    return confirmedBooking;
 }

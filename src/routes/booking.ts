@@ -21,29 +21,8 @@ export const bookingRoutes = async (app: FastifyInstance) => {
             });
         };
 
-        try {
-            const booking = await createBooking(parseResult.data, userId, idempotencyKey);
-            return reply.status(201).send(booking);
-        } catch (err) {
-            const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
-
-            if (message.includes('уже заняты') || message.includes('уже обрабатывается')) {
-                return reply.status(409).send({
-                    error: message
-                })
-            }
-
-            if (message.includes('не найдены') || message.includes('не принадлежат')) {
-                return reply.status(400).send({
-                    error: message,
-                });
-            }
-
-            request.log.error(err);
-            return reply.status(500).send({
-                error: 'Внутренняя ошибка сервера'
-            });
-        };
+        const booking = await createBooking(parseResult.data, userId, idempotencyKey);
+        return reply.status(201).send(booking);
     });
 
     app.post('/bookings/:id/pay', { preHandler: [(app as any).authenticate] }, async (request, reply) => {
@@ -51,28 +30,7 @@ export const bookingRoutes = async (app: FastifyInstance) => {
         const user = request.user as { id: string; email: string };
         const userId = user.id;
 
-        try {
-            const paid = await payBooking(id, userId);
-            return reply.status(200).send(paid);
-        } catch (err) {
-            const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
-
-            if (message.includes('не найдена')) {
-                return reply.status(404).send({
-                    error: message,
-                });
-            };
-
-            if (message.includes('истек') || message.includes('уже оплачена')) {
-                return reply.status(409).send({
-                    error: message,
-                });
-            };
-
-            request.log.error(err);
-            return reply.status(500).send({
-                error: 'Внутренняя ошибка сервера'
-            });
-        }
+        const paid = await payBooking(id, userId);
+        return reply.status(200).send(paid);
     })
 };
