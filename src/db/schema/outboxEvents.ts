@@ -1,4 +1,4 @@
-import { index, jsonb, pgEnum, pgTable, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
+import { index, integer, jsonb, pgEnum, pgTable, text, timestamp, uuid, varchar } from "drizzle-orm/pg-core";
 
 export const outboxStatusEnum = pgEnum('outbox_status', ['PENDING', 'PROCESSED', 'FAILED']);
 
@@ -9,6 +9,8 @@ export const outboxEvents = pgTable('outbox_events', {
     eventType: varchar('event_type', { length: 100 }).notNull(),
     payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
     status: outboxStatusEnum('status').default('PENDING').notNull(),
+    retryCount: integer('retry_count').default(0).notNull(),
+    lastError: text('last_error'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     processedAt: timestamp('processed_at', { withTimezone: true }),
 }, (t) => [
