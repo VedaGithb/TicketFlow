@@ -8,6 +8,22 @@ const successfulBookings = new Counter('successful_bookings');
 const conflictBookings = new Counter('conflict_bookings');
 const unexpectedErrors = new Counter('unexpected_errors');
 
+export function setup() {
+    const url = 'http://host.docker.internal:4000/auth/register';
+    const payload = JSON.stringify({
+        email: `k6_${Date.now()}@test.com`,
+        password: 'password123'
+    });
+    const params = {
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    }
+    const res = http.post(url, payload, params);
+    const body = JSON.parse(res.body);
+    return { token: body.token }
+}
+
 export const options = {
     scenarios: {
         flash_sale_spike: {
@@ -24,7 +40,7 @@ export const options = {
     },
 };
 
-export default function () {
+export default function (data) {
     const seatA = testData.seatIds[0];
     const seatB = testData.seatIds[1];
 
@@ -36,7 +52,6 @@ export default function () {
 
     const url = 'http://host.docker.internal:4000/bookings';
     const payload = JSON.stringify({
-        userId: testData.userId,
         eventId: testData.eventId,
         seatIds: seatsToBook,
     });
@@ -44,6 +59,7 @@ export default function () {
     const params = {
         headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${data.token}`,
             'Idempotency-Key': idempotencyKey,
         },
     };
